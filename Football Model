@@ -1,0 +1,198 @@
+import pandas as pd
+
+# Replace 'example.xlsx' with the path to your Excel file
+excel_file_path = 'Documents\\premier league data\\Prem_23-24_results.xlsx'
+
+# Read Excel file into a DataFrame
+df = pd.read_excel(excel_file_path, sheet_name='all results')
+
+# Extract unique team names from column B
+team_names = df['Home Team'].unique()
+
+# Display the unique team names
+print("Unique Team Names:")
+for team in team_names:
+    print(team)
+
+
+
+
+
+# Check for missing values in the 'Home Team' column
+missing_teams = df[df['Home Team'].isna()]
+
+# Display missing teams, if any
+if not missing_teams.empty:
+    print("Missing Teams:")
+    print(missing_teams['Home Team'])
+else:
+    print("No missing teams.")
+
+
+
+
+# Dictionary to store calculated data for each team
+team_data = {}
+
+# Loop through each team
+for team in team_names:
+    # Filter rows for the teams as Home Team
+    home_team_rows = df[df['Home Team'] == team]
+
+    # Calculate average goals for and against as Home Team
+    avg_home_goals_for = home_team_rows['Home Score'].mean()
+    avg_away_goals_against = home_team_rows['Away Score'].mean()
+
+    # Filter rows for the specific team as Away Team
+    away_team_rows = df[df['Away Team'] == team]
+
+    # Calculate average goals for and against as Away Team
+    avg_away_goals_for = away_team_rows['Away Score'].mean()
+    avg_home_goals_against = away_team_rows['Home Score'].mean()
+
+    # Calculate average goals for and against for each team
+    OFF_rating = (avg_home_goals_for + avg_away_goals_for) / 2
+    DEF_rating = (avg_home_goals_against + avg_away_goals_against) / 2
+
+    # Store calculated data in the dictionary
+    team_data[team] = {
+        'Home Goals For': avg_home_goals_for,
+        'Away Goals For': avg_away_goals_for,
+        'Home Goals Against': avg_home_goals_against,
+        'Away Goals Against': avg_away_goals_against,
+        'OFF Rating': OFF_rating,
+        'DEF Rating': DEF_rating
+    }
+
+# Display calculated data for each team
+print("Team Data:")
+for team, data in team_data.items():
+    print(f"{team}:")
+    print(f"  Home Goals For: {data['Home Goals For']:.5f}")
+    print(f"  Away Goals For: {data['Away Goals For']:.5f}")
+    print(f"  Home Goals Against: {data['Home Goals Against']:.5f}")
+    print(f"  Away Goals Against: {data['Away Goals Against']:.5f}")
+    print(f"  OFF Rating: {data['OFF Rating']:.2f}")
+    print(f"  DEF Rating: {data['DEF Rating']:.2f}")
+    print()
+
+
+
+# Display just OFF & DEF for each team from the above
+print("Team Data:")
+for team, data in team_data.items():
+    print(f"{team}:")
+    print(f"  OFF Rating: {data['OFF Rating']:.5f}")
+    print(f"  DEF Rating: {data['DEF Rating']:.5f}")
+    print()
+
+
+
+
+
+
+#calculate the win/lose/draw probabilities from correct score probabilities using poisson 
+
+# Read ELO ratings from Excel file
+elo_df = pd.read_excel(excel_file_path, sheet_name='ratings')
+
+# Function to simulate Poisson distribution
+number_of_goals = 9
+
+def simulate_poisson_distribution(home_team, away_team):
+    score_matrix = np.zeros((number_of_goals, number_of_goals))
+
+    for home_goals in range(number_of_goals):
+        for away_goals in range(number_of_goals):
+            home_prob = poisson.pmf(home_goals, home_team)
+            away_prob = poisson.pmf(away_goals, away_team)
+            score_matrix[home_goals][away_goals] = home_prob * away_prob
+
+    return score_matrix
+
+
+home_team_name = 'Chelsea' 
+away_team_name = 'Man City' 
+
+# Extract ELO ratings for home and away teams
+home_elo_rating = elo_df.loc[elo_df['Team'] == home_team_name, 'ELO Rating'].values[0]
+away_elo_rating = elo_df.loc[elo_df['Team'] == away_team_name, 'ELO Rating'].values[0]
+
+# Adjust the lambda parameter for the home and away teams based on ELO ratings
+home_xg = 1.74208 * (home_elo_rating / 1000)  # Adjusted for demonstration, replace with your calculation
+away_xg = 2.35229 * (away_elo_rating / 1000)  # Adjusted for demonstration, replace with your calculation
+
+result_matrix = simulate_poisson_distribution(home_xg, away_xg)
+
+# Display the result matrix
+for home_goals in range(number_of_goals):
+    for away_goals in range(number_of_goals):
+        print(f'{home_goals}-{away_goals}: {result_matrix[home_goals][away_goals]:.4f}')
+
+
+
+
+
+import numpy as np
+from scipy.stats import poisson
+
+number_of_goals = 9
+
+def simulate_poisson_distribution(home_team, away_team):
+    score_matrix = np.zeros((number_of_goals, number_of_goals))
+
+    for home_goals in range(number_of_goals):
+        for away_goals in range(number_of_goals):
+            home_prob = poisson.pmf(home_goals, home_team)
+            away_prob = poisson.pmf(away_goals, away_team)
+            score_matrix[home_goals][away_goals] = home_prob * away_prob
+
+    return score_matrix
+
+def print_result_grid(result_matrix):
+    print("  |", end="")
+    for i in range(number_of_goals):
+        print(f"  {i}   |", end="")
+    print("\n--+------+------+------+------+------+------+------+------+------+")
+
+    for home_goals in range(number_of_goals):
+        print(f"{home_goals} |", end="")
+        for away_goals in range(number_of_goals):
+            print(f" {result_matrix[home_goals][away_goals]:.2f} |", end="")
+        print()
+
+def calculate_win_draw_probabilities(result_matrix):
+    home_win_prob = np.sum(np.tril(result_matrix, -1))  # Sum the lower triangular part for home win
+    away_win_prob = np.sum(np.triu(result_matrix, 1))   # Sum the upper triangular part for away win
+    draw_prob = np.sum(np.diag(result_matrix))         # Sum the diagonal for draw
+
+    return home_win_prob, away_win_prob, draw_prob
+
+home_team_xg = 2.35229  # calculated from a seperate source
+away_team_xg = 1.74208  # calculated from a seperate source
+
+result_matrix = simulate_poisson_distribution(home_team_xg, away_team_xg)
+
+# Display the result matrix as a grid
+print_result_grid(result_matrix)
+
+# Calculate and print win and draw probabilities
+home_win_prob, away_win_prob, draw_prob = calculate_win_draw_probabilities(result_matrix)
+
+print("\nWin Probabilities:")
+print(f"\nHome Win Probability: {home_win_prob:.2f}")
+print(f"Away Win Probability: {away_win_prob:.2f}")
+print(f"Draw Probability: {draw_prob:.2f}")
+
+#calculate and print prices
+home_price = 1 / home_win_prob
+draw_price = 1 / draw_prob
+away_price = 1 / away_win_prob
+
+print("\nWin Prices:")
+print(f"\nHome Price : {home_price:.2f}")
+print(f"Draw Price : {draw_price:.2f}")
+print(f"Away Price : {away_price:.2f}")
+
+
+
